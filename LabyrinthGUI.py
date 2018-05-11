@@ -19,10 +19,10 @@ class LabyrinthGUI(tk.Frame):
         self.root = root
         # we define some parameters
         self.root.title("Labyrinthe magique")  # the title
-        self.width = 1024  # the dimension
-        self.height = 512  # the dimension
         self.square_width = 64  # dimension of a tile
         self.square_height = 64  # dimension of a tile
+        self.width = self.square_width * len(labyrinth.adjacency_matrix[0])  # the dimension
+        self.height = self.square_height * len(labyrinth.adjacency_matrix)   # the dimension
         self.root.config(width=self.width, height=self.height)  # we set the dimension of the window
 
         # we store the instance of the labyrinth and the agent
@@ -51,25 +51,29 @@ class LabyrinthGUI(tk.Frame):
         }
 
         # here we define some widgets like a parent canvas, frame, some radio buttons, etc.
-        self.menu = tk.Frame(self.root, bg="#bdc3c7")
+        self.menu = tk.Frame(self.root, bg="#2c3e50")
         self.canvas = tk.Canvas(self.root,
                                 width=self.width,
                                 height=self.height,
-                                bg="black")
+                                bg="#2c3e50")
         # definition of the two radiobuttons
         self.var = tk.BooleanVar()
         self.radio_learning_enabled = tk.Radiobutton(self.menu,
-                                                     bg="#bdc3c7",
+                                                     bg="#2c3e50",
                                                      variable=self.var,
                                                      value=True,
                                                      text="Apprentissage activé",
+                                                     fg="white",
+                                                     selectcolor="black",
                                                      command=self.enable_learning)
 
         self.radio_learning_disabled = tk.Radiobutton(self.menu,
-                                                      bg="#bdc3c7",
+                                                      bg="#2c3e50",
                                                       variable=self.var,
                                                       value=False,
                                                       text="Apprentissage désactivé",
+                                                      fg="white",
+                                                      selectcolor="black",
                                                       command=self.disable_learning)
 
         # here we define a custom font and the buttons we will put on the view
