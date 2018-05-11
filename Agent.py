@@ -9,73 +9,79 @@ from math import exp
 
 class Agent:
 
-    def __init__(self, ai, environment, nb_episodes, epsilon=-1, tau=-1, gamma=0.9):
+    def __init__(self, policy, environment, nb_episodes, exploration_rate=-1,
+                 temperature=-1, discount_rate=0.9, learning_rate=0.9):
         """
         Creates an agent in an environment.
-        :param {str} ai: AI of the agent. Possible values: random|e-greedy|softmax
+        :param {str} policy: AI of the agent. Possible values: random|e-greedy|softmax
         :param {Labyrinth.Labyrinth} environment:
         :param {int} nb_episodes: Number of episodes for the training
-        :param {float} epsilon: if selected ai is ε-greedy, represents the exploration rate (must be in range [0, 1])
-        :param {float} tau: if selected ai is softmax, represents the temperature ([0, oo[)
-        :param {float} gamma: Discount factor, must be in range [0, 1]
+        :param {float} exploration_rate: if selected policy is ε-greedy,
+                                         represents the exploration rate (must be in range [0, 1])
+        :param {float} temperature: if selected ai is softmax,
+                                    represents the temperature ([0, oo[)
+        :param {float} discount_rate: Discount factor, must be in range [0, 1]
         """
-        if ai == 'e-greedy' and epsilon == -1:
-            raise ValueError("ε must be >= 0 if selected ai is ε-greedy !")
-        if ai == 'softmax' and tau == -1:
-            raise ValueError("τ must be >= 0 if selected ai is softmax !")
+        if policy == 'e-greedy' and exploration_rate <= 0:
+            raise ValueError("ε must be > 0 if selected ai is ε-greedy !")
+        if policy == 'softmax' and temperature <= 0:
+            raise ValueError("τ must be > 0 if selected ai is softmax !")
 
-        self.ai = ai
-        self.discount_rate = gamma
-        self.tau = tau
-        self.epsilon = epsilon
+        self.policy = policy
+        self.temperature = temperature
         self.nb_episodes = nb_episodes
         self.environment = environment
-
+        self.discount_rate = discount_rate
+        self.learning_rate = learning_rate
+        self.exploration_rate = exploration_rate
+        # Supported policies for this agent.
         self.policies = {
+            # "name of the policy" : "reference to the function that handle that policy"
             'random':   self.pick_random_action,
             'e-greedy': self.e_greedy,
             'softmax':  self.softmax
         }
-
         self.observers = []
-        self.current_location = (0, 0)
         self.current_episode = 1
+        self.current_location = (0, 0)
         self.possible_actions = self.environment.get_possible_actions(*self.current_location)
 
-        self.Q = \
-            [
-                [
-                    {a: 0 for a in self.environment.get_possible_actions(i, j)}
-                    for j in range(len(self.environment.adjacency_matrix[i]))
-                ]
-                for i in range(len(self.environment.adjacency_matrix))
-            ]
+        # Q values initialisation
+        self.Q = []
+        for i in range(len(self.environment.adjacency_matrix)):
+            self.Q.append([])
+            for j in range(len(self.environment.adjacency_matrix[i])):
+                self.Q[i].append([])
+                self.Q[i][j] = {action: 0 for action in self.environment.get_possible_actions(i, j)}
 
         self.total_reward = 0.0
-        self.total_reward_average = []
-        self.total_selected_actions = {a: 0 for a in self.environment.actions}
         self.action_taken = None
-        self.stop_learning = False
+        self.learning_done = False
         self.stop = False
 
+    def play(self):
+        if self.learning_done:
+            self.optimal_play()
+        else:
+            self.learn()
+
     def learn(self):
-        learning_rates = numpy.linspace(1.0, 0.01, num=self.nb_episodes)
-        epsilon_rates = numpy.linspace(self.epsilon, 0.001, num=self.nb_episodes)
+        """
+        Starts the learning process of the agent.
+        The agent learns with a Q-learning algorithm with a given policy.
+        """
         t = 1
         while t < self.nb_episodes and not self.stop:
             self.current_episode = t
             self.current_location = (0, 0)
             self.possible_actions = self.environment.get_possible_actions(*self.current_location)
             self.total_reward = 0.0
-            self.total_reward_average = []
-            self.epsilon = epsilon_rates[t]
             while not self.environment.is_out(*self.current_location) and not self.stop:
-                action = self.policies[self.ai]()
+                action = self.policies[self.policy]()
                 reward = self.environment.get_reward(self.current_location, action)
                 # update our location and possible actions
                 self.action_taken = action
-                self.update_state(action, reward, t, learning_rates[t])
-                self.total_selected_actions[action] += 1
+                self.update_state(action, reward)
                 if self.environment.adjacency_matrix[self.current_location[0]][self.current_location[1]] == 0:
                     raise ValueError("je suis dans un endroit interdit !!!")
                 time.sleep(0.1)
@@ -83,13 +89,11 @@ class Agent:
 
         self.export_q_values()
 
-    def play(self):
-        if not self.stop_learning:
-            self.learn()
-        else:
-            self.optimal_play()
-
     def optimal_play(self):
+        """
+        Plays in the environement by always taking the best action regarding the agent's Q values.
+        The agent stops when the property self.stop is set to False.
+        """
         while not self.stop:
             self.current_location = (0, 0)
             self.possible_actions = self.environment.get_possible_actions(*self.current_location)
@@ -100,80 +104,101 @@ class Agent:
                 self.current_location = self.environment.get_location(*self.current_location, self.action_taken)
                 self.possible_actions = self.environment.get_possible_actions(*self.current_location)
                 if self.environment.adjacency_matrix[self.current_location[0]][self.current_location[1]] == 0:
-                    raise ValueError("je suis dans un endroit interdit !!!")
+                    raise ValueError("Error: It seems that I am in a forbidden state.")
                 time.sleep(0.1)
 
-    def export_q_values(self):
-        with open('data.json', 'w') as outfile:
+    def export_q_values(self, filename='data.json'):
+        """
+        Exports the Q values in a file (JSON format).
+        """
+        with open(filename, 'w') as outfile:
             json.dump(self.Q, outfile, sort_keys=True, indent=4, ensure_ascii=False)
 
     def pick_random_action(self):
+        """
+        Takes a random action.
+        :return: A random action
+        """
         random_action = random.choice(self.possible_actions)
         return random_action
 
     def best_action(self):
+        """
+        Takes the best possible action for the current state.
+        :return: The best action
+        """
         (i, j) = self.current_location
-        print("current location", self.current_location)
-        print("possible actions", self.possible_actions)
-        print("Q", self.Q[i][j])
-        print("wtf ? ", [(k, v) for (k, v) in self.Q[i][j].items() if k in self.possible_actions])
-        best_action = max([(k, v) for (k, v) in self.Q[i][j].items() if k in self.possible_actions], key=operator.itemgetter(1))[0]
+        # The best action is the one that has the maximum Q value
+        best_action = max(self.Q[i][j].items(), key=operator.itemgetter(1))[0]
         return best_action
 
     def e_greedy(self):
-        return self.pick_random_action() if random.random() <= self.epsilon else self.best_action()
+        """
+        The e-greedy policy is defined as taking the best action
+        with a probability 1-e and a random one with probability e.
+        :return: The action that e-greedy has selected.
+        """
+        return self.pick_random_action() if random.random() <= self.exploration_rate else self.best_action()
 
     def softmax(self):
         boltzmann_distribution = self.get_boltzmann_distribution(exponent_function=self.Q)
         action = self.generate_random(distribution=boltzmann_distribution)
         return action
 
-    def Q(self, action):
-        (i, j) = self.current_location
-        return numpy.mean(self.Q[i][j][action]) if len(self.Q[i][j][action]) > 0 else 0.0
-
-    def update_state(self, action, reward, current_episode, learning_rate):
+    def update_state(self, action, reward):
         """
-
-        :param {string} action:
-        :param {float} reward:
-        :param {int} current_episode:
-        :return:
+        Updates the state of this agent.
+        :param {string} action: The action the agent will take.
+        :param {float} reward: The reward for taking that action.
         """
         self.total_reward += reward
         (i, j) = self.current_location
-
+        # Get the reached state by taking this action
         (new_i, new_j) = self.environment.get_location(i, j, action)
-        next_possible_actions = self.environment.get_possible_actions(new_i, new_j)
-        q_max = max([(k, v) for (k, v) in self.Q[new_i][new_j].items() if k in next_possible_actions], key=operator.itemgetter(1))[1]
-
-        self.Q[i][j][action] += learning_rate * (reward + (self.discount_rate * q_max) - self.Q[i][j][action])
-
+        # We pick the best action of the next state regarding its Q value.
+        q_max = max(self.Q[new_i][new_j].items(), key=operator.itemgetter(1))[1]
+        # Update of the Q value function (A matrix is equivalent to a function in linear algebra).
+        self.Q[i][j][action] += self.learning_rate * (reward + (self.discount_rate * q_max) - self.Q[i][j][action])
+        # We first notify the observers that the agent's state has changed.
         self.notify_observers()
-
+        # Then we update the next location and actions of the agent.
         self.current_location = (new_i, new_j)
         self.possible_actions = self.environment.get_possible_actions(*self.current_location)
 
-        # self.total_reward_average.append(self.total_reward / (current_episode + 1))
-
     def get_boltzmann_distribution(self, exponent_function):
+        """
+        Generates a Boltzmann probability distribution with a custom exponent function.
+        :param exponent_function: The exponent function.
+        :return: A Boltzmann probability distribution.
+        """
+        assert self.temperature > 0, "Assertion error: tau must be grater than 0."
+
         distribution = []
         for a in self.possible_actions:
             denominator = 0.0
             for b in self.possible_actions:
-                denominator += exp(exponent_function(b) / self.tau)
-            distribution.append(exp(exponent_function(a) / self.tau) / denominator)
+                denominator += exp(exponent_function(b) / self.temperature)
+            distribution.append(exp(exponent_function(a) / self.temperature) / denominator)
         return distribution
 
-    def get_stats(self):
-        return range(self.nb_episodes), self.total_reward_average, self.total_selected_actions
-
     def generate_random(self, distribution):
+        """
+        Generates a random value from self.possible_actions following a probability distribution.
+        :param distribution: A probability distribution (the sum of proba must be equals to 1)
+        :return: A random value from self.possible_actions following a probability distribution
+        """
         return numpy.random.choice(self.possible_actions, p=distribution)
 
     def add_observer(self, observer):
+        """
+        Adds an observers to this agent.
+        :param observer: The observer
+        """
         self.observers.append(observer)
 
     def notify_observers(self):
+        """
+        Notify the observers that the state of this agent has changed.
+        """
         for o in self.observers:
             o.update_observation()
