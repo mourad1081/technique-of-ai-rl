@@ -34,12 +34,13 @@ class Agent:
         self.discount_rate = discount_rate
         self.learning_rate = learning_rate
         self.exploration_rate = exploration_rate
+
         # Supported policies for this agent.
         self.policies = {
             # "name of the policy" : "reference to the function that handle that policy"
-            'random':   self.pick_random_action,
+            'random': self.pick_random_action,
             'e-greedy': self.e_greedy,
-            'softmax':  self.softmax
+            'softmax': self.softmax
         }
         self.observers = []
         self.current_episode = 1
@@ -87,8 +88,6 @@ class Agent:
                 time.sleep(0.1)
             t += 1
 
-        self.export_q_values()
-
     def optimal_play(self):
         """
         Plays in the environement by always taking the best action regarding the agent's Q values.
@@ -106,13 +105,6 @@ class Agent:
                 if self.environment.adjacency_matrix[self.current_location[0]][self.current_location[1]] == 0:
                     raise ValueError("Error: It seems that I am in a forbidden state.")
                 time.sleep(0.1)
-
-    def export_q_values(self, filename='data.json'):
-        """
-        Exports the Q values in a file (JSON format).
-        """
-        with open(filename, 'w') as outfile:
-            json.dump(self.Q, outfile, sort_keys=True, indent=4, ensure_ascii=False)
 
     def pick_random_action(self):
         """

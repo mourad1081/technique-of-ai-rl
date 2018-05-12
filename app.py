@@ -20,7 +20,7 @@ if __name__ == '__main__':
     # then we define some hyper parameters
     nb_episodes = 99999
     environment = Labyrinth(map_labyrinth)
-    policy = "softmax"  # e-greedy | random | softmax
+    policy = "e-greedy"  # e-greedy | random | softmax
     agent = Agent(policy, environment, nb_episodes, exploration_rate=0.7, temperature=50, discount_rate=0.95)
 
     # instantiate a window

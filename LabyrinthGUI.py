@@ -1,5 +1,7 @@
+import json
 import random
 import tkinter as tk
+from tkinter import filedialog
 from tkinter.font import Font
 
 
@@ -22,7 +24,7 @@ class LabyrinthGUI(tk.Frame):
         self.square_width = 64  # dimension of a tile
         self.square_height = 64  # dimension of a tile
         self.width = self.square_width * len(labyrinth.adjacency_matrix[0])  # the dimension
-        self.height = self.square_height * len(labyrinth.adjacency_matrix)   # the dimension
+        self.height = self.square_height * len(labyrinth.adjacency_matrix)  # the dimension
         self.root.config(width=self.width, height=self.height)  # we set the dimension of the window
 
         # we store the instance of the labyrinth and the agent
@@ -58,18 +60,48 @@ class LabyrinthGUI(tk.Frame):
                                 bg="#2c3e50")
 
         # Q learning parameter control
-        self.input_exp_rate = tk.Scale(self.menu,
-                                       from_=0,
-                                       to=1,
-                                       bg="#2c3e50",
-                                       fg="white",
-                                       borderwidth=0,
-                                       orient=tk.HORIZONTAL,
-                                       resolution=0.01,
-                                       command=self.set_exp_rate)
+        self.slider_exp_rate = tk.Scale(self.menu, from_=0, to=1, bg="#2c3e50", fg="white",
+                                        borderwidth="3",
+                                        highlightthickness=0,
+                                        orient=tk.HORIZONTAL,
+                                        resolution=0.01,
+                                        command=self.set_exp_rate)
 
+        self.slider_exp_rate.set(0.1)
+
+        self.slider_learning_rate = tk.Scale(self.menu, from_=0, to=1, bg="#2c3e50", fg="white",
+                                             borderwidth="3",
+                                             highlightthickness=0,
+                                             orient=tk.HORIZONTAL,
+                                             resolution=0.01,
+                                             command=self.set_learning_rate)
+        self.slider_learning_rate.set(0.95)
+
+        self.slider_discount_rate = tk.Scale(self.menu, from_=0, to=1, bg="#2c3e50", fg="white",
+                                             borderwidth="3",
+                                             highlightthickness=0,
+                                             orient=tk.HORIZONTAL,
+                                             resolution=0.01,
+                                             command=self.set_discount_rate)
+        self.slider_discount_rate.set(0.8)
+
+        self.slider_temperature = tk.Scale(self.menu, from_=0, to=20, bg="#2c3e50", fg="white",
+                                           borderwidth="3",
+                                           highlightthickness=0,
+                                           orient=tk.HORIZONTAL,
+                                           command=self.set_temperature)
+        self.slider_temperature.set(0.01)
+
+        self.label_learning = tk.Label(self.menu, text="Activate learning", fg='white', bg='#34495E')
+        self.label_policy = tk.Label(self.menu, text="Learning policy", fg='white', bg='#34495E')
+
+        self.label_exploration_rate = tk.Label(self.menu, text="Expl. rate", fg='white', bg='#34495E')
+        self.label_temperature = tk.Label(self.menu, text="Temperature", fg='white', bg='#34495E')
+        self.label_discount_rate = tk.Label(self.menu, text="Disc. rate", fg='white', bg='#34495E')
+        self.label_learning_rate = tk.Label(self.menu, text="Learning rate", fg='white', bg='#34495E')
+
+        self.var = tk.BooleanVar(value=True)
         # definition of the two radiobuttons
-        self.var = tk.BooleanVar()
         self.radio_learning_enabled = tk.Radiobutton(self.menu,
                                                      bg="#2c3e50",
                                                      variable=self.var,
@@ -88,6 +120,34 @@ class LabyrinthGUI(tk.Frame):
                                                       selectcolor="black",
                                                       command=self.disable_learning)
 
+        self.type_policy = tk.StringVar(value="e-Greedy")
+        self.radio_policy_egreedy = tk.Radiobutton(self.menu,
+                                                   bg="#2c3e50",
+                                                   variable=self.type_policy,
+                                                   value="e-Greedy",
+                                                   text="e-Greedy",
+                                                   fg="white",
+                                                   selectcolor="black",
+                                                   command=self.set_egreedy_policy)
+
+        self.radio_policy_softmax = tk.Radiobutton(self.menu,
+                                                   bg="#2c3e50",
+                                                   variable=self.type_policy,
+                                                   value="softmax",
+                                                   text="softmax",
+                                                   fg="white",
+                                                   selectcolor="black",
+                                                   command=self.set_softmax_policy)
+
+        self.radio_policy_random = tk.Radiobutton(self.menu,
+                                                  bg="#2c3e50",
+                                                  variable=self.type_policy,
+                                                  value="random",
+                                                  text="Aléatoire",
+                                                  fg="white",
+                                                  selectcolor="black",
+                                                  command=self.set_random_policy)
+
         # here we define a custom font and the buttons we will put on the view
         self.customFont = Font(family='Helvetica', size=14, weight='bold')
         # the "command" parameter is a reference to the
@@ -96,20 +156,27 @@ class LabyrinthGUI(tk.Frame):
                                    image=self.res["btn_start"],
                                    borderwidth=0,
                                    bg="#013243",
-                                   command=self.start_learning)
+                                   command=self.start)
 
         self.btn_stop = tk.Button(self.menu,
                                   image=self.res["btn_stop"],
                                   borderwidth=0,
                                   bg="#013243",
-                                  command=self.stop_learning)
+                                  command=self.stop)
 
         self.btn_export = tk.Button(self.menu,
-                                    text='Exporter Q values',
+                                    text='Exporter modèle',
                                     font=self.customFont,
                                     bg="#e67e22",
                                     fg="white",
                                     command=self.export)
+
+        self.btn_import = tk.Button(self.menu,
+                                    text='Importer modèle',
+                                    font=self.customFont,
+                                    bg="#e67e22",
+                                    fg="white",
+                                    command=self.import_model)
 
         # this label will contain the number of the current episode.
         self.infos = tk.Label(self.menu,
@@ -132,19 +199,33 @@ class LabyrinthGUI(tk.Frame):
         self.canvas.grid(row=0, column=1, sticky="nsew")
 
         # the label will be placed on the cell (O, 0) of the menu (which has also a grid layout)
-        self.infos.grid(row=0, sticky="nsew", pady=5, padx=5)
+        self.infos.grid(row=0, columnspan=2, sticky="new", pady=5, padx=5)
 
         # the radio buttons will be placed on the cells (1, 0) and (2, 0)
-        self.radio_learning_enabled.grid(row=1, pady=5, padx=5)
-        self.radio_learning_disabled.grid(row=2, pady=5, padx=5)
+        self.label_learning.grid(row=1, columnspan=2, pady=5, padx=5, sticky="ew")
+        self.radio_learning_enabled.grid(row=2,  columnspan=2, pady=5, padx=5, sticky="w")
+        self.radio_learning_disabled.grid(row=3, columnspan=2, pady=5, padx=5, sticky="w")
+
+        self.label_policy.grid(row=4, columnspan=2, pady=5, padx=5, sticky="ew")
+        self.radio_policy_egreedy.grid(row=5, columnspan=2, pady=5, padx=5, sticky="w")
+        self.radio_policy_softmax.grid(row=6, columnspan=2, pady=5, padx=5, sticky="w")
+        self.radio_policy_random.grid(row=7,  columnspan=2, pady=5, padx=5, sticky="w")
+
+        self.label_exploration_rate.grid(row=8, column=0, pady=5, padx=5, sticky="ew")
+        self.label_temperature.grid(row=8,      column=1, pady=5, padx=5, sticky="ew")
+        self.slider_exp_rate.grid(row=9,        column=0, pady=5, padx=5, sticky="ew")
+        self.slider_temperature.grid(row=9,     column=1, pady=5, padx=5, sticky="ew")
+
+        self.label_learning_rate.grid(row=10,  column=0, pady=5, padx=5, sticky="ew")
+        self.label_discount_rate.grid(row=10,  column=1, pady=5, padx=5, sticky="ew")
+        self.slider_learning_rate.grid(row=11, column=0, pady=5, padx=5, sticky="ew")
+        self.slider_discount_rate.grid(row=11, column=1, pady=5, padx=5, sticky="ew")
 
         # the buttons are sticked on the bottom (s for "south", "nsew" for "north, outh, ease, west", etc)
-        self.btn_start.grid(row=3, sticky="s", pady=5, padx=5)
-        self.btn_stop.grid(row=4, sticky="s", pady=5, padx=5)
-        self.btn_export.grid(row=5, sticky="s", pady=5, padx=5)
-
-        # the buttons are sticked on the bottom (s for "south", "nsew" for "north, outh, ease, west", etc)
-        self.input_exp_rate.grid(row=6, pady=5, padx=5)
+        self.btn_start.grid(row=12, columnspan=2, sticky="s", pady=5, padx=5)
+        self.btn_stop.grid(row=13,  columnspan=2, sticky="s", pady=5, padx=5)
+        self.btn_export.grid(row=14, column=0, sticky="s", pady=5, padx=5)
+        self.btn_import.grid(row=14, column=1, sticky="s", pady=5, padx=5)
 
         # we configure some rows of the menu frame by setting
         # their weight; a bigger weight means that the widget
@@ -153,15 +234,43 @@ class LabyrinthGUI(tk.Frame):
         # of the menu frame.
         self.menu.grid_rowconfigure(1, weight=1)
         self.menu.grid_rowconfigure(2, weight=1)
-        self.menu.grid_rowconfigure(3, weight=20)
+        self.menu.grid_rowconfigure(3, weight=1)
         self.menu.grid_rowconfigure(4, weight=1)
         self.menu.grid_rowconfigure(5, weight=1)
+        self.menu.grid_rowconfigure(6, weight=1)
+        self.menu.grid_rowconfigure(7, weight=1)
+        self.menu.grid_rowconfigure(8, weight=1)
+        self.menu.grid_rowconfigure(9, weight=1)
+        self.menu.grid_rowconfigure(10, weight=1)
+        self.menu.grid_rowconfigure(11, weight=1)
+        self.menu.grid_rowconfigure(12, weight=20)
+        self.menu.grid_rowconfigure(13, weight=1)
+        self.menu.grid_rowconfigure(14, weight=1)
 
-        # after every widgets are placed on the view, we draw the view of the labyrinth
+        # after every widgets are placed on the view,
+        # we draw the view of the labyrinth
         self.draw_grid()
 
+    def set_learning_rate(self, value):
+        self.agent.learning_rate = float(value)
+
+    def set_discount_rate(self, value):
+        self.agent.discount_rate = float(value)
+
+    def set_temperature(self, value):
+        self.agent.temperature = float(value)
+
+    def set_softmax_policy(self):
+        self.agent.policy = "softmax"
+
+    def set_egreedy_policy(self):
+        self.agent.policy = "e-greedy"
+
+    def set_random_policy(self):
+        self.agent.policy = "random"
+
     def set_exp_rate(self, value):
-        self.agent.exploration_rate = value
+        self.agent.exploration_rate = float(value)
 
     def draw_grid(self):
         """
@@ -191,46 +300,39 @@ class LabyrinthGUI(tk.Frame):
                     self.action_values[i][j]["up"] = self.canvas.create_text(j * self.square_width + 30,
                                                                              i * self.square_height + 20,
                                                                              fill="red",
-                                                                             text=str(
-                                                                                 self.labyrinth.get_reward((i, j),
-                                                                                                           "up")))
+                                                                             text=str("%.1f" % self.agent.Q[i][j]["up"]))
                 if "down" in possible_actions:
                     self.action_values[i][j]["down"] = self.canvas.create_text(j * self.square_width + 30,
                                                                                i * self.square_height + 40,
                                                                                fill="red",
-                                                                               text=str(
-                                                                                   self.labyrinth.get_reward((i, j),
-                                                                                                             "down")))
+                                                                               text=str("%.1f" % self.agent.Q[i][j]["down"]))
                 if "left" in possible_actions:
                     self.action_values[i][j]["left"] = self.canvas.create_text(j * self.square_width + 10,
                                                                                i * self.square_height + 30,
                                                                                fill="red",
-                                                                               text=str(
-                                                                                   self.labyrinth.get_reward((i, j),
-                                                                                                             "left")))
+                                                                               text=str("%.1f" % self.agent.Q[i][j]["left"]))
                 if "right" in possible_actions:
                     self.action_values[i][j]["right"] = self.canvas.create_text(j * self.square_width + 50,
                                                                                 i * self.square_height + 30,
                                                                                 fill="red",
-                                                                                text=str(
-                                                                                    self.labyrinth.get_reward((i, j),
-                                                                                                              "right")))
+                                                                                text=str("%.1f" % self.agent.Q[i][j]["right"]))
 
     def enable_learning(self):
-        self.agent.stop_learning = False
+        self.agent.learning_done = False
 
     def disable_learning(self):
-        self.agent.stop_learning = True
+        self.agent.learning_done = True
 
-    def start_learning(self):
+    def start(self):
         self.agent.stop = False
+        self.radio_learning_disabled["state"] = tk.DISABLED
+        self.radio_learning_enabled["state"] = tk.DISABLED
         self.agent.play()
 
-    def stop_learning(self):
+    def stop(self):
+        self.radio_learning_disabled["state"] = tk.ACTIVE
+        self.radio_learning_enabled["state"] = tk.ACTIVE
         self.agent.stop = True
-
-    def export(self):
-        self.agent.export_q_values()
 
     def update_position_agent(self):
         (i, j) = self.agent.current_location
@@ -250,3 +352,44 @@ class LabyrinthGUI(tk.Frame):
     def update_observation(self):
         self.infos['text'] = "Episode: " + str(self.agent.current_episode)
         self.update_position_agent()
+
+    def export(self):
+        """
+        Exports the Q values in a file (JSON format).
+        """
+        filename = filedialog.asksaveasfilename(initialdir="/",
+                                                title="Select file",
+                                                filetypes=(("Fichier JSON", "*.json"), ("Tous les fichiers", "*.*")))
+
+        with open(filename, 'w') as outfile:
+            json.dump({
+                "q_values": self.agent.Q,
+                "labyrinth": self.labyrinth.adjacency_matrix
+            },
+                outfile,
+                sort_keys=True,
+                indent=4,
+                ensure_ascii=False)
+
+    def import_model(self):
+        filename = filedialog.askopenfilename(initialdir="/",
+                                              title="Select file",
+                                              filetypes=(("Fichier JSON", "*.json"), ("Tous les fichiers", "*.*")))
+        with open(filename, 'r') as infile:
+            x = json.load(infile)
+
+            self.labyrinth.adjacency_matrix = x["labyrinth"]
+            self.agent.Q = x["q_values"]
+
+            self.square_width = 64  # dimension of a tile
+            self.square_height = 64  # dimension of a tile
+            self.width = self.square_width * len(self.labyrinth.adjacency_matrix[0])  # the dimension
+            self.height = self.square_height * len(self.labyrinth.adjacency_matrix)  # the dimension
+            self.root.config(width=self.width, height=self.height)  # we set the dimension of the window
+
+            self.action_values = []
+            self.draw_grid()
+            self.update_observation()
+
+    def import_labyrinth(self):
+        pass
