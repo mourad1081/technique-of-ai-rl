@@ -25,6 +25,7 @@ if __name__ == '__main__':
 
     # instantiate a window
     root = tk.Tk()
+    root.resizable(0, 0)
     gui = LabyrinthGUI(root, environment, agent)
     # Let's go !
     root.mainloop()
