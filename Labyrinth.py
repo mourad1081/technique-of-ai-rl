@@ -48,7 +48,7 @@ class Labyrinth:
         elif self.adjacency_matrix[i][j] == 2:
             return -10
         elif self.adjacency_matrix[i][j] == -1:
-            return 10
+            return 100
         else:
             raise ValueError("location undefined")
 

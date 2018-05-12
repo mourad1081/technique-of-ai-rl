@@ -85,11 +85,12 @@ class LabyrinthGUI(tk.Frame):
                                              command=self.set_discount_rate)
         self.slider_discount_rate.set(0.8)
 
-        self.slider_temperature = tk.Scale(self.menu, from_=0, to=20, bg="#2c3e50", fg="white",
+        self.slider_temperature = tk.Scale(self.menu, from_=0.01, to=20, bg="#2c3e50", fg="white",
                                            borderwidth="3",
                                            highlightthickness=0,
                                            orient=tk.HORIZONTAL,
-                                           command=self.set_temperature)
+                                           command=self.set_temperature,
+                                           resolution=0.01)
         self.slider_temperature.set(0.01)
 
         self.label_learning = tk.Label(self.menu, text="Activate learning", fg='white', bg='#34495E')
@@ -177,6 +178,12 @@ class LabyrinthGUI(tk.Frame):
                                     bg="#e67e22",
                                     fg="white",
                                     command=self.import_model)
+        self.btn_import_map = tk.Button(self.menu,
+                                        text='Importer labyrinthe',
+                                        font=self.customFont,
+                                        bg="#e67e22",
+                                        fg="white",
+                                        command=self.import_labyrinth)
 
         # this label will contain the number of the current episode.
         self.infos = tk.Label(self.menu,
@@ -203,29 +210,30 @@ class LabyrinthGUI(tk.Frame):
 
         # the radio buttons will be placed on the cells (1, 0) and (2, 0)
         self.label_learning.grid(row=1, columnspan=2, pady=5, padx=5, sticky="ew")
-        self.radio_learning_enabled.grid(row=2,  columnspan=2, pady=5, padx=5, sticky="w")
+        self.radio_learning_enabled.grid(row=2, columnspan=2, pady=5, padx=5, sticky="w")
         self.radio_learning_disabled.grid(row=3, columnspan=2, pady=5, padx=5, sticky="w")
 
         self.label_policy.grid(row=4, columnspan=2, pady=5, padx=5, sticky="ew")
         self.radio_policy_egreedy.grid(row=5, columnspan=2, pady=5, padx=5, sticky="w")
         self.radio_policy_softmax.grid(row=6, columnspan=2, pady=5, padx=5, sticky="w")
-        self.radio_policy_random.grid(row=7,  columnspan=2, pady=5, padx=5, sticky="w")
+        self.radio_policy_random.grid(row=7, columnspan=2, pady=5, padx=5, sticky="w")
 
         self.label_exploration_rate.grid(row=8, column=0, pady=5, padx=5, sticky="ew")
-        self.label_temperature.grid(row=8,      column=1, pady=5, padx=5, sticky="ew")
-        self.slider_exp_rate.grid(row=9,        column=0, pady=5, padx=5, sticky="ew")
-        self.slider_temperature.grid(row=9,     column=1, pady=5, padx=5, sticky="ew")
+        self.label_temperature.grid(row=8, column=1, pady=5, padx=5, sticky="ew")
+        self.slider_exp_rate.grid(row=9, column=0, pady=5, padx=5, sticky="ew")
+        self.slider_temperature.grid(row=9, column=1, pady=5, padx=5, sticky="ew")
 
-        self.label_learning_rate.grid(row=10,  column=0, pady=5, padx=5, sticky="ew")
-        self.label_discount_rate.grid(row=10,  column=1, pady=5, padx=5, sticky="ew")
+        self.label_learning_rate.grid(row=10, column=0, pady=5, padx=5, sticky="ew")
+        self.label_discount_rate.grid(row=10, column=1, pady=5, padx=5, sticky="ew")
         self.slider_learning_rate.grid(row=11, column=0, pady=5, padx=5, sticky="ew")
         self.slider_discount_rate.grid(row=11, column=1, pady=5, padx=5, sticky="ew")
 
         # the buttons are sticked on the bottom (s for "south", "nsew" for "north, outh, ease, west", etc)
         self.btn_start.grid(row=12, columnspan=2, sticky="s", pady=5, padx=5)
-        self.btn_stop.grid(row=13,  columnspan=2, sticky="s", pady=5, padx=5)
+        self.btn_stop.grid(row=13, columnspan=2, sticky="s", pady=5, padx=5)
         self.btn_export.grid(row=14, column=0, sticky="s", pady=5, padx=5)
         self.btn_import.grid(row=14, column=1, sticky="s", pady=5, padx=5)
+        self.btn_import_map.grid(row=15, columnspan=2, sticky="s", pady=5, padx=5)
 
         # we configure some rows of the menu frame by setting
         # their weight; a bigger weight means that the widget
@@ -246,6 +254,7 @@ class LabyrinthGUI(tk.Frame):
         self.menu.grid_rowconfigure(12, weight=20)
         self.menu.grid_rowconfigure(13, weight=1)
         self.menu.grid_rowconfigure(14, weight=1)
+        self.menu.grid_rowconfigure(15, weight=1)
 
         # after every widgets are placed on the view,
         # we draw the view of the labyrinth
@@ -300,22 +309,26 @@ class LabyrinthGUI(tk.Frame):
                     self.action_values[i][j]["up"] = self.canvas.create_text(j * self.square_width + 30,
                                                                              i * self.square_height + 20,
                                                                              fill="red",
-                                                                             text=str("%.1f" % self.agent.Q[i][j]["up"]))
+                                                                             text=str(
+                                                                                 "%.1f" % self.agent.Q[i][j]["up"]))
                 if "down" in possible_actions:
                     self.action_values[i][j]["down"] = self.canvas.create_text(j * self.square_width + 30,
                                                                                i * self.square_height + 40,
                                                                                fill="red",
-                                                                               text=str("%.1f" % self.agent.Q[i][j]["down"]))
+                                                                               text=str(
+                                                                                   "%.1f" % self.agent.Q[i][j]["down"]))
                 if "left" in possible_actions:
                     self.action_values[i][j]["left"] = self.canvas.create_text(j * self.square_width + 10,
                                                                                i * self.square_height + 30,
                                                                                fill="red",
-                                                                               text=str("%.1f" % self.agent.Q[i][j]["left"]))
+                                                                               text=str(
+                                                                                   "%.1f" % self.agent.Q[i][j]["left"]))
                 if "right" in possible_actions:
                     self.action_values[i][j]["right"] = self.canvas.create_text(j * self.square_width + 50,
                                                                                 i * self.square_height + 30,
                                                                                 fill="red",
-                                                                                text=str("%.1f" % self.agent.Q[i][j]["right"]))
+                                                                                text=str("%.1f" % self.agent.Q[i][j][
+                                                                                    "right"]))
 
     def enable_learning(self):
         self.agent.learning_done = False
@@ -386,10 +399,22 @@ class LabyrinthGUI(tk.Frame):
             self.width = self.square_width * len(self.labyrinth.adjacency_matrix[0])  # the dimension
             self.height = self.square_height * len(self.labyrinth.adjacency_matrix)  # the dimension
             self.root.config(width=self.width, height=self.height)  # we set the dimension of the window
-
             self.action_values = []
+            self.canvas.delete("all")
             self.draw_grid()
             self.update_observation()
 
     def import_labyrinth(self):
-        pass
+        filename = filedialog.askopenfilename(initialdir="/",
+                                              title="Select file",
+                                              filetypes=(("Labyrinth map", "*.map"), ("Tous les fichiers", "*.*")))
+        with open(filename, 'r') as infile:
+            self.labyrinth.adjacency_matrix = []
+            for line in infile.readlines():
+                self.labyrinth.adjacency_matrix.append([int(x) for x in line.split(",")])
+        print(len(self.labyrinth.adjacency_matrix))
+        self.action_values = []
+        self.agent.reset_Q()
+        self.canvas.delete("all")
+        self.draw_grid()
+        self.update_observation()

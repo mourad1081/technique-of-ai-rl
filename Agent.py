@@ -60,6 +60,14 @@ class Agent:
         self.learning_done = False
         self.stop = False
 
+    def reset_Q(self):
+        self.Q = []
+        for i in range(len(self.environment.adjacency_matrix)):
+            self.Q.append([])
+            for j in range(len(self.environment.adjacency_matrix[i])):
+                self.Q[i].append([])
+                self.Q[i][j] = {action: 0 for action in self.environment.get_possible_actions(i, j)}
+
     def play(self):
         if self.learning_done:
             self.optimal_play()
