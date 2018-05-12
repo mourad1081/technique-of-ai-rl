@@ -58,7 +58,15 @@ class LabyrinthGUI(tk.Frame):
                                 bg="#2c3e50")
 
         # Q learning parameter control
-        self.input_exp_rate = tk.Entry(self.menu, validate="key", validatecommand = self.set_exp_rate)
+        self.input_exp_rate = tk.Scale(self.menu,
+                                       from_=0,
+                                       to=1,
+                                       bg="#2c3e50",
+                                       fg="white",
+                                       borderwidth=0,
+                                       orient=tk.HORIZONTAL,
+                                       resolution=0.01,
+                                       command=self.set_exp_rate)
 
         # definition of the two radiobuttons
         self.var = tk.BooleanVar()
@@ -152,14 +160,8 @@ class LabyrinthGUI(tk.Frame):
         # after every widgets are placed on the view, we draw the view of the labyrinth
         self.draw_grid()
 
-    def set_exp_rate(self):
-        print("mourad stfu")
-        try:
-            int(self.input_exp_rate["text"])
-        except ValueError:
-            return False
-        
-        return True
+    def set_exp_rate(self, value):
+        self.agent.exploration_rate = value
 
     def draw_grid(self):
         """
