@@ -174,11 +174,12 @@ class Agent:
         assert self.temperature > 0, "Assertion error: tau must be grater than 0."
 
         distribution = []
+        (i, j) = self.current_location
         for a in self.possible_actions:
             denominator = 0.0
             for b in self.possible_actions:
-                denominator += exp(exponent_function(b) / self.temperature)
-            distribution.append(exp(exponent_function(a) / self.temperature) / denominator)
+                denominator += exp(exponent_function[i][j][b] / self.temperature)
+            distribution.append(exp(exponent_function[i][j][a] / self.temperature) / denominator)
         return distribution
 
     def generate_random(self, distribution):
