@@ -56,6 +56,10 @@ class LabyrinthGUI(tk.Frame):
                                 width=self.width,
                                 height=self.height,
                                 bg="#2c3e50")
+
+        # Q learning parameter control
+        self.input_exp_rate = tk.Entry(self.menu, validate="key", validatecommand = self.set_exp_rate)
+
         # definition of the two radiobuttons
         self.var = tk.BooleanVar()
         self.radio_learning_enabled = tk.Radiobutton(self.menu,
@@ -131,6 +135,9 @@ class LabyrinthGUI(tk.Frame):
         self.btn_stop.grid(row=4, sticky="s", pady=5, padx=5)
         self.btn_export.grid(row=5, sticky="s", pady=5, padx=5)
 
+        # the buttons are sticked on the bottom (s for "south", "nsew" for "north, outh, ease, west", etc)
+        self.input_exp_rate.grid(row=6, pady=5, padx=5)
+
         # we configure some rows of the menu frame by setting
         # their weight; a bigger weight means that the widget
         # at that row will take more space in the layout. we
@@ -144,6 +151,15 @@ class LabyrinthGUI(tk.Frame):
 
         # after every widgets are placed on the view, we draw the view of the labyrinth
         self.draw_grid()
+
+    def set_exp_rate(self):
+        print("mourad stfu")
+        try:
+            int(self.input_exp_rate["text"])
+        except ValueError:
+            return False
+        
+        return True
 
     def draw_grid(self):
         """
