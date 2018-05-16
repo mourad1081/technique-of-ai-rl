@@ -46,7 +46,7 @@ class Labyrinth:
         if self.adjacency_matrix[i][j] == 1:
             return -1
         elif self.adjacency_matrix[i][j] == 2:
-            return -10
+            return -75
         elif self.adjacency_matrix[i][j] == -1:
             return 100
         else:
@@ -56,15 +56,15 @@ class Labyrinth:
         return self.adjacency_matrix[i][j] == -1  # states for which an episode ends
 
     @staticmethod
-    def get_location(i, j, direction):
-        if direction == "up":
+    def get_location(i, j, action):
+        if action == "up":
             return i - 1, j
-        elif direction == "down":
+        elif action == "down":
             return i + 1, j
-        elif direction == "left":
+        elif action == "left":
             return i, j - 1
-        elif direction == "right":
+        elif action == "right":
             return i, j + 1
         else:
-            error = "get_location::not a valid action. i=" + str(i) + ", j=" + str(j) + ", d=" + str(direction)
+            error = "get_location::not a valid action. i=" + str(i) + ", j=" + str(j) + ", d=" + str(action)
             raise ValueError(error)

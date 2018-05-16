@@ -30,6 +30,8 @@ class LabyrinthGUI(tk.Frame):
         # we store the instance of the labyrinth and the agent
         self.labyrinth = labyrinth
         self.agent = agent
+        # labyrinth grid center parameter
+        self.c = (10 - len(self.labyrinth.adjacency_matrix)) / 2 if len(self.labyrinth.adjacency_matrix) <= 10 else 0
         # we are an observer of the agent, we then add ourself to its list of observers
         self.agent.add_observer(self)
         # this tuple will contain the position of the agent
@@ -58,7 +60,6 @@ class LabyrinthGUI(tk.Frame):
                                 width=self.width,
                                 height=self.height,
                                 bg="#2c3e50")
-
         # Q learning parameter control
         self.slider_exp_rate = tk.Scale(self.menu, from_=0, to=1, bg="#2c3e50", fg="white",
                                         borderwidth="3",
@@ -67,7 +68,7 @@ class LabyrinthGUI(tk.Frame):
                                         resolution=0.01,
                                         command=self.set_exp_rate)
 
-        self.slider_exp_rate.set(0.1)
+        self.slider_exp_rate.set(self.agent.exploration_rate)
 
         self.slider_learning_rate = tk.Scale(self.menu, from_=0, to=1, bg="#2c3e50", fg="white",
                                              borderwidth="3",
@@ -75,7 +76,7 @@ class LabyrinthGUI(tk.Frame):
                                              orient=tk.HORIZONTAL,
                                              resolution=0.01,
                                              command=self.set_learning_rate)
-        self.slider_learning_rate.set(0.95)
+        self.slider_learning_rate.set(self.agent.learning_rate)
 
         self.slider_discount_rate = tk.Scale(self.menu, from_=0, to=1, bg="#2c3e50", fg="white",
                                              borderwidth="3",
@@ -83,7 +84,7 @@ class LabyrinthGUI(tk.Frame):
                                              orient=tk.HORIZONTAL,
                                              resolution=0.01,
                                              command=self.set_discount_rate)
-        self.slider_discount_rate.set(0.8)
+        self.slider_discount_rate.set(self.agent.discount_rate)
 
         self.slider_temperature = tk.Scale(self.menu, from_=0.01, to=20, bg="#2c3e50", fg="white",
                                            borderwidth="3",
@@ -91,14 +92,14 @@ class LabyrinthGUI(tk.Frame):
                                            orient=tk.HORIZONTAL,
                                            command=self.set_temperature,
                                            resolution=0.01)
-        self.slider_temperature.set(0.01)
+        self.slider_temperature.set(self.agent.temperature)
 
-        self.label_learning = tk.Label(self.menu, text="Activate learning", fg='white', bg='#34495E')
+        self.label_learning = tk.Label(self.menu, text="Learning state", fg='white', bg='#34495E')
         self.label_policy = tk.Label(self.menu, text="Learning policy", fg='white', bg='#34495E')
 
-        self.label_exploration_rate = tk.Label(self.menu, text="Expl. rate", fg='white', bg='#34495E')
+        self.label_exploration_rate = tk.Label(self.menu, text="Exploration rate", fg='white', bg='#34495E')
         self.label_temperature = tk.Label(self.menu, text="Temperature", fg='white', bg='#34495E')
-        self.label_discount_rate = tk.Label(self.menu, text="Disc. rate", fg='white', bg='#34495E')
+        self.label_discount_rate = tk.Label(self.menu, text="Discount rate", fg='white', bg='#34495E')
         self.label_learning_rate = tk.Label(self.menu, text="Learning rate", fg='white', bg='#34495E')
 
         self.var = tk.BooleanVar(value=True)
@@ -107,7 +108,7 @@ class LabyrinthGUI(tk.Frame):
                                                      bg="#2c3e50",
                                                      variable=self.var,
                                                      value=True,
-                                                     text="Apprentissage activé",
+                                                     text="Enable learning",
                                                      fg="white",
                                                      selectcolor="black",
                                                      command=self.enable_learning)
@@ -116,7 +117,7 @@ class LabyrinthGUI(tk.Frame):
                                                       bg="#2c3e50",
                                                       variable=self.var,
                                                       value=False,
-                                                      text="Apprentissage désactivé",
+                                                      text="Disable learning (Optimal play)",
                                                       fg="white",
                                                       selectcolor="black",
                                                       command=self.disable_learning)
@@ -144,7 +145,7 @@ class LabyrinthGUI(tk.Frame):
                                                   bg="#2c3e50",
                                                   variable=self.type_policy,
                                                   value="random",
-                                                  text="Aléatoire",
+                                                  text="Random",
                                                   fg="white",
                                                   selectcolor="black",
                                                   command=self.set_random_policy)
@@ -166,20 +167,20 @@ class LabyrinthGUI(tk.Frame):
                                   command=self.stop)
 
         self.btn_export = tk.Button(self.menu,
-                                    text='Exporter modèle',
+                                    text='Export model',
                                     font=self.customFont,
                                     bg="#e67e22",
                                     fg="white",
                                     command=self.export)
 
         self.btn_import = tk.Button(self.menu,
-                                    text='Importer modèle',
+                                    text='Import model',
                                     font=self.customFont,
                                     bg="#e67e22",
                                     fg="white",
                                     command=self.import_model)
         self.btn_import_map = tk.Button(self.menu,
-                                        text='Importer labyrinthe',
+                                        text='Import map',
                                         font=self.customFont,
                                         bg="#e67e22",
                                         fg="white",
@@ -187,7 +188,7 @@ class LabyrinthGUI(tk.Frame):
 
         # this label will contain the number of the current episode.
         self.infos = tk.Label(self.menu,
-                              text="Ètat AI",
+                              text="AI Parameters Tweak",
                               justify=tk.CENTER,
                               fg='white',
                               bg='#34495E')
@@ -229,10 +230,10 @@ class LabyrinthGUI(tk.Frame):
         self.slider_discount_rate.grid(row=11, column=1, pady=5, padx=5, sticky="ew")
 
         # the buttons are sticked on the bottom (s for "south", "nsew" for "north, outh, ease, west", etc)
-        self.btn_start.grid(row=12, columnspan=2, sticky="s", pady=5, padx=5)
-        self.btn_stop.grid(row=13, columnspan=2, sticky="s", pady=5, padx=5)
-        self.btn_export.grid(row=14, column=0, sticky="s", pady=5, padx=5)
-        self.btn_import.grid(row=14, column=1, sticky="s", pady=5, padx=5)
+        self.btn_start.grid(row=12, column=0, sticky="s", pady=5, padx=5)
+        self.btn_stop.grid(row=12, column=1, sticky="s", pady=5, padx=5)
+        self.btn_import.grid(row=13, columnspan=2, sticky="s", pady=5, padx=5)
+        self.btn_export.grid(row=14, columnspan=2, sticky="s", pady=5, padx=5)
         self.btn_import_map.grid(row=15, columnspan=2, sticky="s", pady=5, padx=5)
 
         # we configure some rows of the menu frame by setting
@@ -259,6 +260,7 @@ class LabyrinthGUI(tk.Frame):
         # after every widgets are placed on the view,
         # we draw the view of the labyrinth
         self.draw_grid()
+        self.draw_agent()
 
     def set_learning_rate(self, value):
         self.agent.learning_rate = float(value)
@@ -285,6 +287,8 @@ class LabyrinthGUI(tk.Frame):
         """
         Draw a view of the labyrinth
         """
+        # labyrinth grid center parameter
+        self.c = (10 - len(self.labyrinth.adjacency_matrix)) / 2 if len(self.labyrinth.adjacency_matrix) <= 10 else 0
         for i in range(len(self.labyrinth.adjacency_matrix)):
             self.action_values.append([])
             for j in range(len(self.labyrinth.adjacency_matrix[i])):
@@ -292,12 +296,12 @@ class LabyrinthGUI(tk.Frame):
                 # drawing grid
                 alternate = "b" if random.random() <= .5 else ""
                 self.canvas.create_image(j * self.square_width,
-                                         i * self.square_height,
+                                         (i + self.c) * self.square_height,
                                          image=self.res["1" + alternate],
                                          anchor='nw')
                 if self.labyrinth.adjacency_matrix[i][j] != 1:
                     self.canvas.create_image(j * self.square_width,
-                                             i * self.square_height,
+                                             (i + self.c) * self.square_height,
                                              image=self.res[str(self.labyrinth.adjacency_matrix[i][j]) + alternate],
                                              anchor='nw')
                 self.canvas.grid()
@@ -307,25 +311,25 @@ class LabyrinthGUI(tk.Frame):
                 self.action_values[i][j] = {}
                 if "up" in possible_actions:
                     self.action_values[i][j]["up"] = self.canvas.create_text(j * self.square_width + 30,
-                                                                             i * self.square_height + 20,
+                                                                             (i + self.c) * self.square_height + 20,
                                                                              fill="red",
                                                                              text=str(
                                                                                  "%.1f" % self.agent.Q[i][j]["up"]))
                 if "down" in possible_actions:
                     self.action_values[i][j]["down"] = self.canvas.create_text(j * self.square_width + 30,
-                                                                               i * self.square_height + 40,
+                                                                               (i + self.c) * self.square_height + 40,
                                                                                fill="red",
                                                                                text=str(
                                                                                    "%.1f" % self.agent.Q[i][j]["down"]))
                 if "left" in possible_actions:
                     self.action_values[i][j]["left"] = self.canvas.create_text(j * self.square_width + 10,
-                                                                               i * self.square_height + 30,
+                                                                               (i + self.c) * self.square_height + 30,
                                                                                fill="red",
                                                                                text=str(
                                                                                    "%.1f" % self.agent.Q[i][j]["left"]))
                 if "right" in possible_actions:
                     self.action_values[i][j]["right"] = self.canvas.create_text(j * self.square_width + 50,
-                                                                                i * self.square_height + 30,
+                                                                                (i + self.c) * self.square_height + 30,
                                                                                 fill="red",
                                                                                 text=str("%.1f" % self.agent.Q[i][j][
                                                                                     "right"]))
@@ -353,7 +357,7 @@ class LabyrinthGUI(tk.Frame):
             self.canvas.delete(self.position_agent_gui)
 
         self.position_agent_gui = self.canvas.create_image(j * self.square_width + 20,
-                                                           i * self.square_height + 20,
+                                                           (i + self.c) * self.square_height + 20,
                                                            image=self.res["pikachu"],
                                                            anchor='nw')
 
@@ -363,58 +367,70 @@ class LabyrinthGUI(tk.Frame):
         self.canvas.update()
 
     def update_observation(self):
-        self.infos['text'] = "Episode: " + str(self.agent.current_episode)
+        self.infos['text'] = "Episode: " + str(self.agent.current_episode+1)
         self.update_position_agent()
 
     def export(self):
         """
         Exports the Q values in a file (JSON format).
         """
-        filename = filedialog.asksaveasfilename(initialdir="/",
+        filename = filedialog.asksaveasfilename(initialdir=".",
                                                 title="Select file",
                                                 filetypes=(("Fichier JSON", "*.json"), ("Tous les fichiers", "*.*")))
-
         with open(filename, 'w') as outfile:
             json.dump({
                 "q_values": self.agent.Q,
                 "labyrinth": self.labyrinth.adjacency_matrix
-            },
+                },
                 outfile,
                 sort_keys=True,
                 indent=4,
                 ensure_ascii=False)
 
     def import_model(self):
-        filename = filedialog.askopenfilename(initialdir="/",
+        filename = filedialog.askopenfilename(initialdir=".",
                                               title="Select file",
                                               filetypes=(("Fichier JSON", "*.json"), ("Tous les fichiers", "*.*")))
         with open(filename, 'r') as infile:
             x = json.load(infile)
-
             self.labyrinth.adjacency_matrix = x["labyrinth"]
             self.agent.Q = x["q_values"]
-
-            self.square_width = 64  # dimension of a tile
-            self.square_height = 64  # dimension of a tile
-            self.width = self.square_width * len(self.labyrinth.adjacency_matrix[0])  # the dimension
-            self.height = self.square_height * len(self.labyrinth.adjacency_matrix)  # the dimension
-            self.root.config(width=self.width, height=self.height)  # we set the dimension of the window
-            self.action_values = []
-            self.canvas.delete("all")
-            self.draw_grid()
-            self.update_observation()
+        self.action_values = []
+        self.canvas.delete("all")
+        self.update_canvas_size()
+        self.draw_grid()
+        if self.position_agent_gui is not None:
+            self.canvas.delete(self.position_agent_gui)
+            self.position_agent_gui = None
+        self.draw_agent()
+        self.stop()
 
     def import_labyrinth(self):
-        filename = filedialog.askopenfilename(initialdir="/",
+        filename = filedialog.askopenfilename(initialdir=".",
                                               title="Select file",
                                               filetypes=(("Labyrinth map", "*.map"), ("Tous les fichiers", "*.*")))
         with open(filename, 'r') as infile:
             self.labyrinth.adjacency_matrix = []
             for line in infile.readlines():
                 self.labyrinth.adjacency_matrix.append([int(x) for x in line.split(",")])
-        print(len(self.labyrinth.adjacency_matrix))
         self.action_values = []
-        self.agent.reset_Q()
+        self.agent.init_Q()
         self.canvas.delete("all")
+        self.update_canvas_size()
         self.draw_grid()
-        self.update_observation()
+        if self.position_agent_gui is not None:
+            self.canvas.delete(self.position_agent_gui)
+            self.position_agent_gui = None
+        self.draw_agent()
+        self.stop()
+
+    def update_canvas_size(self):
+        self.width = self.square_width * len(self.labyrinth.adjacency_matrix[0])  # the dimension
+        self.height = self.square_height * len(self.labyrinth.adjacency_matrix)  # the dimension
+        self.canvas.config(width=self.width, height=self.height)
+
+    def draw_agent(self):
+        self.position_agent_gui = self.canvas.create_image(0 * self.square_width + 20,
+                                                           (0 + self.c) * self.square_height + 20,
+                                                           image=self.res["pikachu"],
+                                                           anchor='nw')

@@ -10,7 +10,7 @@ from math import exp
 class Agent:
 
     def __init__(self, policy, environment, nb_episodes, exploration_rate=-1,
-                 temperature=-1, discount_rate=0.9, learning_rate=0.9):
+                 temperature=-1, discount_rate=-1, learning_rate=0.9):
         """
         Creates an agent in an environment.
         :param {str} policy: AI of the agent. Possible values: random|e-greedy|softmax
@@ -22,10 +22,14 @@ class Agent:
                                     represents the temperature ([0, oo[)
         :param {float} discount_rate: Discount factor, must be in range [0, 1]
         """
-        if policy == 'e-greedy' and exploration_rate <= 0:
-            raise ValueError("ε must be > 0 if selected ai is ε-greedy !")
+        if policy == 'e-greedy' and (exploration_rate <= 0 or exploration_rate > 1):
+            raise ValueError("Exploration rate must be in range [0, 1] if selected policy is ε-greedy !")
         if policy == 'softmax' and temperature <= 0:
-            raise ValueError("τ must be > 0 if selected ai is softmax !")
+            raise ValueError("Temperature must be in range [0, 1] if selected policy is softmax !")
+        if discount_rate < 0 or discount_rate > 1:
+            raise ValueError("Discount rate must be in range [0, 1] !")
+        if learning_rate < 0 or learning_rate > 1:
+            raise ValueError("Learning rate must be in range [0, 1] !")
 
         self.policy = policy
         self.temperature = temperature
@@ -42,25 +46,22 @@ class Agent:
             'e-greedy': self.e_greedy,
             'softmax': self.softmax
         }
+
+        # List of observer to update(GUI)
         self.observers = []
         self.current_episode = 1
         self.current_location = (0, 0)
         self.possible_actions = self.environment.get_possible_actions(*self.current_location)
 
         # Q values initialisation
-        self.Q = []
-        for i in range(len(self.environment.adjacency_matrix)):
-            self.Q.append([])
-            for j in range(len(self.environment.adjacency_matrix[i])):
-                self.Q[i].append([])
-                self.Q[i][j] = {action: 0 for action in self.environment.get_possible_actions(i, j)}
+        self.init_Q()
 
         self.total_reward = 0.0
         self.action_taken = None
         self.learning_done = False
         self.stop = False
 
-    def reset_Q(self):
+    def init_Q(self):
         self.Q = []
         for i in range(len(self.environment.adjacency_matrix)):
             self.Q.append([])
